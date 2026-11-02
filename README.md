@@ -53,11 +53,6 @@ apptainer build qupath-selkies_0.7.0.sif qupath-selkies.def
 Another QuPath release: `--build-arg QUPATH_VERSION=0.6.0` (and name the image
 accordingly). Copy the image to the path set in `script.sh.erb`.
 
-## Deploy the app
-
-```bash
-sudo cp -r bc_qupath /var/www/ood/apps/sys/qupath
-```
 
 Review every line marked `SITE`:
 
