@@ -1,6 +1,6 @@
 ---
 # Site-specific values to review before deployment are marked "SITE".
-cluster: "bmrc"   # SITE: the cluster name in /etc/ood/config/clusters.d
+cluster: cluster   # SITE: the cluster name in /etc/ood/config/clusters.d
 
 attributes:
   bc_queue:
