@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Starts the QuPath container on the port chosen in before.sh. Inside the
+# container, selkies-session starts an Xvfb display, the QuPath launcher
+# (Openbox + QuPath) and the Selkies stream server.
+#
+# Selkies listens on every interface so that the portal's reverse proxy can
+# reach it, and runs in secure mode: no connection is admitted without the
+# session token provisioned by after.sh.
+
+# ---- SITE settings ---------------------------------------------------------
+QUPATH_SIF="/apps/containers/qupath/qupath-selkies_<%= context.qupath_version %>.sif"   # SITE
+BIND_PATHS="/well"                                                                 # SITE: add the target if /well is a symlink
+# module load Apptainer                                                            # SITE, if not on PATH
+# -----------------------------------------------------------------------------
+
+session_dir="${PWD}"
+
+# Java heap for QuPath: ~75% of the job's memory, leaving room for Xvfb, the
+# encoder and native libraries (OpenSlide, OpenCV). An explicit -Xmx takes
+# precedence over the -XX:MaxRAMPercentage=50 in QuPath's own launcher config.
+java_opts="-Xmx<%= [(context.memory_gb.to_i * 0.75).floor, 2].max %>g -Dprism.order=<%= context.rendering == "es2" ? "es2,sw" : "sw" %>"
+
+# --cleanenv keeps the host's modules, Python and Java settings out of the
+# container; APPTAINERENV_* variables are passed in regardless.
+export APPTAINERENV_SELKIES_MASTER_TOKEN="${SELKIES_MASTER_TOKEN}"
+export APPTAINERENV_QUPATH_EXIT_MARKER="${QUPATH_EXIT_MARKER}"
+export APPTAINERENV_JAVA_TOOL_OPTIONS="${java_opts}"
+export APPTAINERENV_SELKIES_WAYLAND="false"
+
+apptainer_args=(exec --cleanenv --bind "${BIND_PATHS}" --bind "${session_dir}")
+<%- if context.use_gpu == "1" -%>
+apptainer_args+=(--nv)
+<%- end -%>
+
+selkies_args=(
+  --session=/opt/qupath-selkies/bin/qupath-session
+  --public
+  --port="${port}"
+  --enable-basic-auth=false
+  --enable-https=false
+  --allowed-origins='*'
+)
+<%- if context.use_gpu != "1" -%>
+selkies_args+=(--use-cpu=true)
+<%- end -%>
+
+echo "$(date) Starting QuPath <%= context.qupath_version %> from ${QUPATH_SIF}"
+echo "$(date) Java options: ${java_opts}"
+
+apptainer "${apptainer_args[@]}" "${QUPATH_SIF}" selkies-session "${selkies_args[@]}" &
+session_pid=$!
+
+# End the session when QuPath exits (File > Quit, or closing its main window).
+while kill -0 "${session_pid}" 2>/dev/null; do
+  if [ -e "${QUPATH_EXIT_MARKER}" ]; then
+    echo "$(date) QuPath has exited; stopping the session"
+    kill -TERM "${session_pid}" 2>/dev/null
+    break
+  fi
+  sleep 2
+done
+
+wait "${session_pid}"

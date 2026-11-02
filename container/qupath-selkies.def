@@ -1,0 +1,91 @@
+Bootstrap: docker
+From: ubuntu:24.04
+
+# QuPath streamed to the browser by Selkies, for the Open OnDemand QuPath app.
+#
+# Build (Apptainer >= 1.2, from this directory):
+#   apptainer build qupath-selkies_0.7.0.sif qupath-selkies.def
+#
+# Build a different QuPath or Selkies release:
+#   apptainer build --build-arg QUPATH_VERSION=0.6.0 \
+#       qupath-selkies_0.6.0.sif qupath-selkies.def
+
+%arguments
+    QUPATH_VERSION=0.7.0
+    SELKIES_VERSION=2.0.0
+
+%labels
+    org.opencontainers.image.title "QuPath with Selkies browser streaming"
+    org.opencontainers.image.authors "KIR Research Computing"
+    qupath.version {{ QUPATH_VERSION }}
+    selkies.version {{ SELKIES_VERSION }}
+
+%files
+    qupath-session /opt/qupath-selkies/bin/qupath-session
+    openbox-rc.xml /opt/qupath-selkies/openbox/rc.xml
+
+%post
+    set -eu
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ca-certificates curl xz-utils \
+        xvfb x11-xserver-utils x11-utils \
+        openbox wmctrl dbus \
+        libgtk-3-0t64 libgl1 libegl1 libgbm1 libgl1-mesa-dri \
+        libxtst6 libxxf86vm1 libasound2t64 \
+        fonts-dejavu-core fonts-liberation \
+        locales tzdata
+
+    # Selkies: private Python environment under /opt/selkies, with the web
+    # client, the pixelflux encoder and selkies-session on PATH.
+    curl -fsSL -o /tmp/selkies.deb \
+        "https://github.com/selkies-project/selkies/releases/download/{{ SELKIES_VERSION }}/selkies-{{ SELKIES_VERSION }}-ubuntu24.04-amd64.deb"
+    apt-get install -y --no-install-recommends /tmp/selkies.deb
+    rm -f /tmp/selkies.deb
+
+    # QuPath: the upstream Linux build, which carries its own Java runtime.
+    curl -fsSL -o /tmp/qupath.tar.xz \
+        "https://github.com/qupath/qupath/releases/download/v{{ QUPATH_VERSION }}/QuPath-v{{ QUPATH_VERSION }}-Linux.tar.xz"
+    tar -xJf /tmp/qupath.tar.xz -C /opt
+    rm -f /tmp/qupath.tar.xz
+    chmod 0755 /opt/QuPath/bin/QuPath
+    chmod 0755 /opt/qupath-selkies/bin/qupath-session
+
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+
+%environment
+    export PATH="/opt/qupath-selkies/bin:/opt/QuPath/bin:${PATH}"
+    export QUPATH_HOME=/opt/QuPath
+    export LANG=C.UTF-8
+    export LC_ALL=C.UTF-8
+    # The image's Python (Selkies) must not import packages from the user's
+    # ~/.local, which is bind-mounted from the host.
+    export PYTHONNOUSERSITE=1
+
+%runscript
+    # Default: a QuPath session streamed by Selkies; any arguments are passed
+    # to selkies-session (for example --port=..., --enable-basic-auth=false).
+    exec selkies-session --session=/opt/qupath-selkies/bin/qupath-session "$@"
+
+%test
+    set -e
+    test -x /opt/QuPath/bin/QuPath
+    command -v selkies-session >/dev/null
+    command -v Xvfb >/dev/null
+    command -v openbox >/dev/null
+
+%help
+    QuPath {{ QUPATH_VERSION }} streamed to the browser by Selkies {{ SELKIES_VERSION }}.
+
+    This image is launched by the Open OnDemand QuPath app. To run it by hand
+    on a compute node (reach it through an SSH tunnel to the port):
+
+        apptainer run --cleanenv --bind /well qupath-selkies.sif \
+            --port=8443 --basic-auth-password='<choose one>'
+
+    QuPath alone, displayed through X11 forwarding:
+
+        apptainer exec --bind /well qupath-selkies.sif QuPath

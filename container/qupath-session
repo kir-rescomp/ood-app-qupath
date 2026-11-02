@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# qupath-session: the "desktop" that selkies-session starts on its Xvfb display.
+#
+# Runs a minimal window manager and QuPath as the only application, and keeps
+# the QuPath windows fitted to the display:
+#   - the main window is undecorated (Openbox rule in rc.xml) and maximised,
+#     and is maximised again whenever it loses that state (JavaFX resets its
+#     own geometry when Selkies resizes the display to follow the browser);
+#   - any other window left partly outside the display after a resize (a
+#     dialog placed while the display was larger, for example) is re-centred.
+#
+# When QuPath exits, the file named by QUPATH_EXIT_MARKER (if set) is created,
+# which the Open OnDemand job script watches in order to end the session.
+
+set -u
+
+QUPATH_HOME="${QUPATH_HOME:-/opt/QuPath}"
+OPENBOX_RC="${OPENBOX_RC:-/opt/qupath-selkies/openbox/rc.xml}"
+# Display size until a browser connects and Selkies sizes it to the client.
+INITIAL_SIZE="${QUPATH_INITIAL_SIZE:-1920x1080}"
+
+openbox --config-file "${OPENBOX_RC}" &
+wm_pid=$!
+
+# Let the window manager take ownership of the display first, so that every
+# QuPath window is managed by it.
+for _ in $(seq 1 20); do
+    wmctrl -m >/dev/null 2>&1 && break
+    sleep 0.25
+done
+
+# selkies-session starts Xvfb at its maximum size; start QuPath on a display
+# of ordinary size so that its first windows are placed sensibly.
+selkies-resize "${INITIAL_SIZE}" >/dev/null 2>&1 || true
+
+"${QUPATH_HOME}/bin/QuPath" "$@" &
+qupath_pid=$!
+
+# The main QuPath window: QuPath's WM_CLASS, a title beginning "QuPath", and
+# no WM_TRANSIENT_FOR (dialogs are transient for the main window).
+main_window() {
+    local wid
+    for wid in $(wmctrl -lx 2>/dev/null \
+            | awk '$3 ~ /^qupath\.lib\.gui\.QuPathApp/ && $5 ~ /^QuPath/ {print $1}'); do
+        if xprop -id "${wid}" WM_TRANSIENT_FOR 2>/dev/null | grep -q 'not found'; then
+            echo "${wid}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+keep_windows_fitted() {
+    local main state geometry width height wid x y w h
+    while kill -0 "${qupath_pid}" 2>/dev/null; do
+        geometry=$(xwininfo -root 2>/dev/null | awk '/-geometry/ {print $2}')
+        geometry="${geometry%%+*}"
+        width="${geometry%x*}"
+        height="${geometry#*x}"
+
+        if main=$(main_window); then
+            state=$(xprop -id "${main}" _NET_WM_STATE 2>/dev/null)
+            if [[ "${state}" != *FULLSCREEN* ]] && \
+               [[ "${state}" != *MAXIMIZED_VERT* || "${state}" != *MAXIMIZED_HORZ* ]]; then
+                wmctrl -i -r "${main}" -b add,maximized_vert,maximized_horz
+            fi
+
+            if [[ -n "${width}" && -n "${height}" ]]; then
+                while read -r wid x y w h; do
+                    [[ "${wid}" == "${main}" ]] && continue
+                    if (( x < 0 || y < 0 || x + w > width || y + h > height )); then
+                        x=$(( (width - w) / 2 )); (( x < 0 )) && x=0
+                        y=$(( (height - h) / 2 )); (( y < 0 )) && y=0
+                        wmctrl -i -r "${wid}" -e "0,${x},${y},-1,-1"
+                    fi
+                done < <(wmctrl -lG 2>/dev/null | awk '{print $1, $3, $4, $5, $6}')
+            fi
+        fi
+        sleep 1
+    done
+}
+keep_windows_fitted &
+fitter_pid=$!
+
+wait "${qupath_pid}"
+status=$?
+
+if [ -n "${QUPATH_EXIT_MARKER:-}" ]; then
+    touch "${QUPATH_EXIT_MARKER}" 2>/dev/null || true
+fi
+
+kill "${fitter_pid}" "${wm_pid}" 2>/dev/null || true
+exit "${status}"

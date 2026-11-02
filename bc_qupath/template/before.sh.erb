@@ -1,0 +1,17 @@
+# Runs on the compute node before script.sh, in the job's own shell.
+#
+# host, port and password are written by Open OnDemand into the session's
+# connection file and used by view.html.erb. The password doubles as the
+# Selkies session token that the "Open QuPath" link carries; the master token
+# is used only by after.sh to provision that session token.
+
+host=$(hostname)
+port=$(find_port "${host}")
+password=$(create_passwd 32)
+export host port
+export SELKIES_MASTER_TOKEN="$(create_passwd 32)"
+
+# Created by the container's launcher when QuPath exits, so that the job ends
+# instead of leaving an empty stream running for the rest of its time limit.
+export QUPATH_EXIT_MARKER="${PWD}/qupath.exited"
+rm -f "${QUPATH_EXIT_MARKER}"

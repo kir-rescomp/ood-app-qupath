@@ -1,0 +1,9 @@
+---
+name: QuPath
+category: Interactive Apps
+subcategory: Imaging
+role: batch_connect
+icon: fa://microscope
+description: |
+  QuPath for digital pathology and whole-slide image analysis, running on a
+  compute node and streamed to the browser as a single application window.

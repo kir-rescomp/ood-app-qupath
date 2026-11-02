@@ -1,0 +1,13 @@
+---
+# The basic template runs template/script.sh on the compute node; the browser
+# reaches its port through the portal's reverse proxy at /rnode/<host>/<port>/.
+batch_connect:
+  template: "basic"
+
+script:
+  native:
+    - "--cpus-per-task=<%= num_cores.to_i %>"
+    - "--mem=<%= memory_gb.to_i %>G"
+<%- if use_gpu == "1" -%>
+    - "--gpus-per-node=1"
+<%- end -%>

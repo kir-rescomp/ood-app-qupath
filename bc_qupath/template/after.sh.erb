@@ -1,0 +1,13 @@
+# Runs on the compute node once script.sh is running. Waits for Selkies to
+# answer, then provisions the session token that the view's link carries;
+# only then does Open OnDemand report the session as running. A session that
+# does not come up within the timeout ends the job.
+
+if wait_until_port_used "${host}:${port}" 180; then
+  curl -fsS -o /dev/null -X POST "http://${host}:${port}/api/tokens" \
+    -H "Authorization: Bearer ${SELKIES_MASTER_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "{\"${password}\": {\"role\": \"controller\", \"slot\": 1}}" || clean_up 1
+else
+  clean_up 1
+fi
