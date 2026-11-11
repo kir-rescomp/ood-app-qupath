@@ -1,3 +1,20 @@
+<%-
+  cluster_id = 'cluster'   # SITE: must match the cluster id in form.yml.erb
+  helper     = File.join(__dir__, 'ood_partitions.rb')
+
+  queue = partition.to_s.strip
+  raise ArgumentError, 'Please select a partition.' unless queue.match?(/\A[A-Za-z0-9_.\-]+\z/)
+
+  gpu_queue = queue.match?(/\Agpu/i)
+  if File.exist?(helper)
+    require helper unless defined?(OodPartitions)
+    gpu_queue ||= OodPartitions.gpu?(queue, cluster_id: cluster_id)
+  end
+  if gpu_queue
+    raise ArgumentError, "The '#{queue}' partition is a GPU partition. " \
+                         'This app currently runs on CPU partitions only.'
+  end
+-%>
 ---
 # The basic template runs template/script.sh on the compute node; the browser
 # reaches its port through the portal's reverse proxy at /rnode/<host>/<port>/.
