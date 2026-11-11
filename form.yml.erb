@@ -1,5 +1,5 @@
 <%-
-  # Partition list. This app uses the same app-local helper as the QuPath app
+  # Partition list. This app uses the same app-local helper as the napari app
   # (ood_partitions.rb, copied into this directory), which applies Slurm's
   # parent-account rule. This first version is CPU-only, so GPU partitions are
   # left out of the list. Without the helper, the fixed list below is used.
@@ -27,24 +27,26 @@
   default_partition = partitions.map(&:last).include?('short') ? 'short' : partitions.first.last
 -%>
 ---
-# Site-specific values to review before deployment are marked "SITE".
-cluster: "<%= cluster_id %>"   # SITE: the cluster name in /etc/ood/config/clusters.d
+cluster: "<%= cluster_id %>"
 
 attributes:
-  bc_queue:
+  partition:
     widget: select
     label: Partition
     value: "<%= default_partition %>"
     help: |
-      The partitions available to you are listed.
-    options:  <%= partitions.to_json %>
+      This app runs on CPU partitions only. The display is rendered and
+      streamed on the CPU cores requested below.
+    options: <%= partitions.to_json %>
+    # Partition time limits (hours) for form.js.
     html_options:
       data:
-        max_hours: <%= limits.to_json.to_json %>
+        max-hours: <%= limits.to_json.to_json %>
+
   num_cores:
     widget: number_field
     label: CPU cores
-    value: 2
+    value: 4
     min: 2
     max: 32
     step: 1
@@ -55,21 +57,13 @@ attributes:
   memory_gb:
     widget: number_field
     label: Memory (GB)
-    value: 4
+    value: 16
     min: 8
     max: 256
     step: 4
     help: |
       Approximately 75% of this is given to QuPath as Java heap; the rest is
       reserved for the display, the stream encoder and native libraries.
-
-  use_gpu:
-    widget: check_box
-    label: Request a GPU
-    value: "0"
-    help: |
-      Select only on a GPU partition. The GPU is used to encode the video
-      stream and is available to QuPath extensions.
 
   rendering:
     widget: select
@@ -82,13 +76,13 @@ attributes:
 
   qupath_version:
     widget: hidden_field
-    value: "0.7.0"   # SITE: matches the container image installed below
+    value: "0.7.0"   # SITE: matches the container image installed
 
 form:
-  - bc_queue
+  - partition
   - bc_num_hours
   - num_cores
   - memory_gb
-#  - use_gpu
   - rendering
   - qupath_version
+
