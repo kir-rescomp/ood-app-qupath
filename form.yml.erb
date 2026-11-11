@@ -34,14 +34,13 @@ attributes:
   bc_queue:
     widget: select
     label: Partition
+    value: "<%= default_partition %>"
     help: |
-      Use a GPU partition only if the session requires GPU encoding or a
-      GPU-accelerated QuPath extension; CPU partitions are suitable for most
-      viewing and annotation work.
-    options:   # SITE: partition names
-      - ["short", "short"]
-      - ["long", "long"]
-
+      The partitions available to you are listed.
+    options:  <%= partitions.to_json %>
+    html_options:
+      data:
+        max_hours: <%= limits.to_json.to_json %>
   num_cores:
     widget: number_field
     label: CPU cores

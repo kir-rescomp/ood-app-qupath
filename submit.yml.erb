@@ -5,9 +5,7 @@ batch_connect:
   template: "basic"
 
 script:
+  queue_name: "<%= partition %>"
   native:
     - "--cpus-per-task=<%= num_cores.to_i %>"
     - "--mem=<%= memory_gb.to_i %>G"
-<%- if use_gpu == "1" -%>
-    - "--gpus-per-node=1"
-<%- end -%>
