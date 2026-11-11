@@ -1,6 +1,34 @@
+<%-
+  # Partition list. This app uses the same app-local helper as the QuPath app
+  # (ood_partitions.rb, copied into this directory), which applies Slurm's
+  # parent-account rule. This first version is CPU-only, so GPU partitions are
+  # left out of the list. Without the helper, the fixed list below is used.
+  cluster_id = 'cluster'   # SITE: the cluster id (clusters.d file name)
+  helper     = File.join(__dir__, 'ood_partitions.rb')
+
+  fallback = [%w[short short], %w[long long], %w[himem himem]]   # SITE
+
+  partitions = fallback
+  limits     = {}
+  if File.exist?(helper)
+    begin
+      require helper unless defined?(OodPartitions)
+      values = OodPartitions.options(cluster_id: cluster_id).map { |o| o.is_a?(Array) ? o.last.to_s : o.to_s }
+      cpu    = values.reject { |name| OodPartitions.gpu?(name, cluster_id: cluster_id) }
+      unless cpu.empty?
+        partitions = cpu.map { |name| [name, name] }
+        limits     = cpu.to_h { |name| [name, OodPartitions.max_hours(name, cluster_id: cluster_id)] }
+      end
+    rescue StandardError
+      partitions = fallback
+      limits     = {}
+    end
+  end
+  default_partition = partitions.map(&:last).include?('short') ? 'short' : partitions.first.last
+-%>
 ---
 # Site-specific values to review before deployment are marked "SITE".
-cluster: cluster   # SITE: the cluster name in /etc/ood/config/clusters.d
+cluster: "<%= cluster_id %>"   # SITE: the cluster name in /etc/ood/config/clusters.d
 
 attributes:
   bc_queue:
@@ -62,6 +90,6 @@ form:
   - bc_num_hours
   - num_cores
   - memory_gb
-  - use_gpu
+#  - use_gpu
   - rendering
   - qupath_version
