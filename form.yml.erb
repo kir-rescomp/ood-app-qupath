@@ -1,0 +1,88 @@
+<%-
+  # Partition list. This app uses the same app-local helper as the napari app
+  # (ood_partitions.rb, copied into this directory), which applies Slurm's
+  # parent-account rule. This first version is CPU-only, so GPU partitions are
+  # left out of the list. Without the helper, the fixed list below is used.
+  cluster_id = 'cluster'   # SITE: the cluster id (clusters.d file name)
+  helper     = File.join(__dir__, 'ood_partitions.rb')
+
+  fallback = [%w[short short], %w[long long], %w[himem himem]]   # SITE
+
+  partitions = fallback
+  limits     = {}
+  if File.exist?(helper)
+    begin
+      require helper unless defined?(OodPartitions)
+      values = OodPartitions.options(cluster_id: cluster_id).map { |o| o.is_a?(Array) ? o.last.to_s : o.to_s }
+      cpu    = values.reject { |name| OodPartitions.gpu?(name, cluster_id: cluster_id) }
+      unless cpu.empty?
+        partitions = cpu.map { |name| [name, name] }
+        limits     = cpu.to_h { |name| [name, OodPartitions.max_hours(name, cluster_id: cluster_id)] }
+      end
+    rescue StandardError
+      partitions = fallback
+      limits     = {}
+    end
+  end
+  default_partition = partitions.map(&:last).include?('short') ? 'short' : partitions.first.last
+-%>
+---
+cluster: "<%= cluster_id %>"
+
+attributes:
+  partition:
+    widget: select
+    label: Partition
+    value: "<%= default_partition %>"
+    help: |
+      This app runs on CPU partitions only. The display is rendered and
+      streamed on the CPU cores requested below.
+    options: <%= partitions.to_json %>
+    # Partition time limits (hours) for form.js.
+    html_options:
+      data:
+        max-hours: <%= limits.to_json.to_json %>
+
+  num_cores:
+    widget: number_field
+    label: CPU cores
+    value: 4
+    min: 2
+    max: 32
+    step: 1
+    help: |
+      Two of these cores are used to render and stream the display; the
+      remainder are available to QuPath for analysis.
+
+  memory_gb:
+    widget: number_field
+    label: Memory (GB)
+    value: 16
+    min: 8
+    max: 256
+    step: 4
+    help: |
+      Approximately 75% of this is given to QuPath as Java heap; the rest is
+      reserved for the display, the stream encoder and native libraries.
+
+  rendering:
+    widget: select
+    label: QuPath rendering
+    options:
+      - ["Software (recommended)", "sw"]
+      - ["OpenGL (experimental)", "es2"]
+    help: |
+      Software rendering is the most reliable choice on compute nodes.
+
+  qupath_version:
+    widget: hidden_field
+    value: "0.7.0"   # SITE: matches the container image installed
+
+form:
+  - partition
+  - bc_num_hours
+  - num_cores
+  - memory_gb
+  - rendering
+  - qupath_version
+
