@@ -29,9 +29,10 @@ export APPTAINERENV_JAVA_TOOL_OPTIONS="${java_opts}"
 export APPTAINERENV_SELKIES_WAYLAND="false"
 
 apptainer_args=(exec --cleanenv --bind "${BIND_PATHS}" --bind "${session_dir}")
-<%- if context.use_gpu == "1" -%>
-apptainer_args+=(--nv)
-<%- end -%>
+#Commenting out these as we are not using GPUs
+<%#- if context.use_gpu == "1" -%>
+#apptainer_args+=(--nv)
+<%#- end -%>
 
 selkies_args=(
   --session=/opt/qupath-selkies/bin/qupath-session
@@ -41,9 +42,13 @@ selkies_args=(
   --enable-https=false
   --allowed-origins='*'
 )
-<%- if context.use_gpu != "1" -%>
+#COmmenting out as we are not using GPU
+<%#- if context.use_gpu != "1" -%>
+#selkies_args+=(--use-cpu=true)
+<%#- end -%>
+
+#Following line will ensure the stream is always encoded on the CPU
 selkies_args+=(--use-cpu=true)
-<%- end -%>
 
 echo "$(date) Starting QuPath <%= context.qupath_version %> from ${QUPATH_SIF}"
 echo "$(date) Java options: ${java_opts}"
