@@ -30,9 +30,9 @@ export APPTAINERENV_SELKIES_WAYLAND="false"
 
 apptainer_args=(exec --cleanenv --bind "${BIND_PATHS}" --bind "${session_dir}")
 #Commenting out these as we are not using GPUs
-#<%- if context.use_gpu == "1" -%>
+<%#- if context.use_gpu == "1" -%>
 #apptainer_args+=(--nv)
-#<%- end -%>
+<%#- end -%>
 
 selkies_args=(
   --session=/opt/qupath-selkies/bin/qupath-session
@@ -43,9 +43,9 @@ selkies_args=(
   --allowed-origins='*'
 )
 #COmmenting out as we are not using GPU
-#<%- if context.use_gpu != "1" -%>
+<%#- if context.use_gpu != "1" -%>
 #selkies_args+=(--use-cpu=true)
-#<%- end -%>
+<%#- end -%>
 
 #Following line will ensure the stream is always encoded on the CPU
 selkies_args+=(--use-cpu=true)
