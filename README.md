@@ -6,22 +6,6 @@ window. The stream is produced by [Selkies](https://github.com/selkies-project/s
 (H.264 over a WebSocket), which passes through the portal's `/rnode` reverse
 proxy without any additional ports, STUN or TURN services.
 
-```
-qupath-ood/
-├── container/
-│   ├── qupath-selkies.def    Apptainer definition (Ubuntu 24.04, QuPath, Selkies, Openbox)
-│   ├── qupath-session        Launcher run inside the stream: Openbox + QuPath, window fitting, exit marker
-│   └── openbox-rc.xml        Minimal window-manager configuration
-└── bc_qupath/                Batch Connect app (copy to /var/www/ood/apps/sys/qupath)
-    ├── manifest.yml
-    ├── form.yml
-    ├── submit.yml.erb
-    ├── view.html.erb
-    └── template/
-        ├── before.sh.erb     Port, session token, master token, exit marker
-        ├── script.sh.erb     Starts the container (site settings at the top)
-        └── after.sh.erb      Provisions the session token once Selkies answers
-```
 
 ## How a session runs
 
