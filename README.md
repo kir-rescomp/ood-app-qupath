@@ -1,7 +1,7 @@
 # QuPath on Open OnDemand (Selkies streaming)
 
 An Open OnDemand Batch Connect app that runs QuPath in an Apptainer container
-on a compute node and streams it to the browser as a single application
+and streams it to the browser as a single application
 window. The stream is produced by [Selkies](https://github.com/selkies-project/selkies)
 (H.264 over a WebSocket), which passes through the portal's `/rnode` reverse
 proxy without any additional ports, STUN or TURN services.
